@@ -15,6 +15,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int COLUMN_COUNT = 10;
     private static final int ROW_COUNT = 10;
+    private static final int MINES = 5;
 
     // save the TextViews of all cells in an array, so later on,
     // when a TextView is clicked, we know which cell it is
@@ -34,7 +35,6 @@ public class MainActivity extends AppCompatActivity {
         cell_tvs = new ArrayList<>();
         cells = new ArrayList<>();
 
-        // Method (2): add four dynamically created cells
         GridLayout grid = (GridLayout) findViewById(R.id.gridLayout01);
         grid.setRowCount(ROW_COUNT);
         grid.setColumnCount(COLUMN_COUNT);
@@ -91,6 +91,7 @@ public class MainActivity extends AppCompatActivity {
             tv.setTextColor(Color.GREEN);
             tv.setBackgroundColor(Color.parseColor("lime"));
         } else {
+            if (cell.adjacementMines > 0)
             cell.isRevealed = false;
             tv.setTextColor(Color.GRAY);
             tv.setBackgroundColor(Color.LTGRAY);
