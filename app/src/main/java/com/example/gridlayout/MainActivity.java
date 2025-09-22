@@ -4,6 +4,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.gridlayout.widget.GridLayout;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -17,8 +18,6 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int COLUMN_COUNT = 10;
     private static final int ROW_COUNT = 10;
-    private static final int MINE_COUNT = 5;
-    private static final int FLAG_COUNT = 5;
 
     // save the TextViews of all cells in an array, so later on,
     // when a TextView is clicked, we know which cell it is
@@ -29,12 +28,10 @@ public class MainActivity extends AppCompatActivity {
     private TextView timeView;
     private TextView flagButton;
 
-    private int flagsNum = FLAG_COUNT;
-    private boolean usingFlags = false;
+    private int flagsNum = 5;
+    private boolean gameMode = false;
     private int clock = 0;
     private boolean running = false;
-
-    private boolean firstClick = true;
 
     private int dpToPixel(int dp) {
         float density = Resources.getSystem().getDisplayMetrics().density;
@@ -60,18 +57,19 @@ public class MainActivity extends AppCompatActivity {
 
         runTimer();
 
-        // Switch between flags and pickaxe icon.
+        // Switch between flags and pickaxe.
         flagButton.setOnClickListener(new View.OnClickListener()
         {
             @Override
             public void onClick(View v)
             {
-                usingFlags = !usingFlags;
-                if (usingFlags)
+                // Actually switches between flag and pick.
+                gameMode = !gameMode;
+                if (gameMode) // Flag
                 {
                     flagButton.setText(getString(R.string.flag));
                 }
-                else
+                else // Pickaxe.
                 {
                     flagButton.setText(getString(R.string.pick));
                 }
@@ -93,8 +91,6 @@ public class MainActivity extends AppCompatActivity {
                 tv.setWidth(dpToPixel(32));
                 tv.setTextSize(18);
                 tv.setTextAlignment(TextView.TEXT_ALIGNMENT_CENTER);
-                //tv.setTextColor(Color.GRAY);
-                //tv.setBackgroundColor(Color.GRAY);
                 tv.setTextColor(Color.GREEN);
                 tv.setBackgroundColor(Color.parseColor("lime"));
                 tv.setOnClickListener(this::onClickTV);
@@ -112,9 +108,11 @@ public class MainActivity extends AppCompatActivity {
                 cells.add(c);
             }
         }
+        // Randomly place mines.
+        placeMines();
 
-        //placeMines(MINE_COUNT);
-        //findAdjacentMines();
+        // Calculate adjacent mines.
+        findAdjacentMines();
     }
     @Override
     public void onSaveInstanceState(Bundle savedInstanceState)
@@ -129,25 +127,7 @@ public class MainActivity extends AppCompatActivity {
         handler.post(new Runnable() {
             @Override
             public void run() {
-                int hours = clock / 3600;
-                int minutes = (clock % 3600) / 60;
-                int seconds = clock % 60;
-
-                // Show minutes and hours if needed.
-                String time;
-                if(hours > 0)
-                {
-                    time = String.format("%d:%02d:%02d", hours, minutes, seconds);
-                }
-                else if (minutes > 0)
-                {
-                   time = String.format("%d:%02d", minutes, seconds);
-                }
-                else
-                {
-                    time = String.valueOf(seconds);
-                }
-
+                String time = String.valueOf(clock);
                 timeView.setText(getString(R.string.clock) + " " + time);
 
                 if (running) {
@@ -166,82 +146,68 @@ public class MainActivity extends AppCompatActivity {
         return -1;
     }
 
+    // Mechanics of using flags and selecting cells.
     public void onClickTV(View view) {
         TextView tv = (TextView) view;
         int n = findIndexOfCellTextView(tv);
         int row = n / COLUMN_COUNT;
         int col = n % COLUMN_COUNT;
-        Cell cell = cells.get(n);
+        Cell c = cells.get(n);
 
-        // Mechanics of using flags and selecting cells.
-        if(usingFlags)
+        if(gameMode) // Flag
         {
             if(getString(R.string.flag).contentEquals(tv.getText()))
             {
                 tv.setText("");
                 flagsNum++;
             }
-            else if(flagsNum > 0 && !cell.isRevealed)
+            // Allows user to user more than 5 flags.
+            else if(!c.isRevealed)
             {
                 tv.setText(getString(R.string.flag));
                 flagsNum--;
             }
             flagView.setText(getString(R.string.flag) + " " + flagsNum);
         }
+        // Pickaxe cases.
         else
         {
+            // Starts timer.
             if (!running)
             {
                 running = true;
             }
 
-            if (firstClick)
-            {
-                placeMines(MINE_COUNT, n);
-                findAdjacentMines();
-                firstClick = false;
-            }
-
-            // Check to see if this line does anything
-            if (cell.isRevealed)
+            // Doesn't allow user to click flagged cells.
+            if (getString(R.string.flag).contentEquals(tv.getText()))
             {
                 return;
             }
 
-            if(cell.hasMine)
+            // Doesn't allow user to click revealed cells.
+            if (c.isRevealed)
             {
+                return;
+            }
+
+            if(c.hasMine) {
                 tv.setText(getString(R.string.mine));
                 tv.setBackgroundColor(Color.RED);
-                running = false;
-                endGame(false);
+                gameResult(false);
                 return;
             }
 
-            firstClickAction(row, col);
-            if(checkWin())
+            // Classic first click function in Minesweeper.
+            firstClick(row, col);
+
+            if(checkPlayerResult())
             {
-                endGame(true);
+                gameResult(true);
             }
-
-            /*else
-            {
-                if (cell.adjacementMines > 0)
-                {
-                    tv.setText(String.valueOf(cell.adjacementMines));
-                    tv.setTextColor(Color.GRAY);
-                }
-                //Check if I need else?
-                else
-                {
-                    tv.setText("");
-                }
-
-                tv.setBackgroundColor(Color.LTGRAY);
-            }*/
         }
     }
 
-    private void firstClickAction(int row, int col)
+    private void firstClick(int row, int col)
     {
         if(!inGrid(row, col))
         {
@@ -260,9 +226,10 @@ public class MainActivity extends AppCompatActivity {
         c.isRevealed = true;
         tv.setBackgroundColor(Color.LTGRAY);
 
-        if (c.adjacementMines > 0) {
+        if (c.adjacementMines > 0)
+        {
             tv.setText(String.valueOf(c.adjacementMines));
-            tv.setTextColor(Color.BLACK);
+            tv.setTextColor(Color.GRAY);
             return;
         }
 
@@ -270,19 +237,20 @@ public class MainActivity extends AppCompatActivity {
         {
             for(int j = -1; j <= 1; j++)
             {
-                if(!(i == 0 && j == 0))
+                if(i != 0 || j != 0)
                 {
-                    firstClickAction(row + i, col + j);
+                    firstClick(row + i, col + j);
                 }
             }
         }
     }
 
     // Randomly place mines across grid.
-    private void placeMines(int n)
+    private void placeMines()
     {
-        for(Cell c : cells)
+        for(int i = 0; i < cells.size(); i++)
         {
+            Cell c = cells.get(i);
             c.hasMine = false;
             c.adjacementMines = 0;
             c.isRevealed = false;
@@ -291,25 +259,20 @@ public class MainActivity extends AppCompatActivity {
         int placedMines = 0;
         int totalCells = ROW_COUNT * COLUMN_COUNT;
 
-        while (placedMines < MINE_COUNT)
+        while (placedMines < 5)
         {
             int index = (int) (Math.random() * totalCells);
-            Cell cell = cells.get(index);
+            Cell c = cells.get(index);
 
-            if(index == n)
+            if (!c.hasMine)
             {
-                continue;
-            }
-
-            if (!cell.hasMine)
-            {
-                cell.hasMine = true;
+                c.hasMine = true;
                 placedMines++;
             }
         }
     }
 
-    // Compute adjacent mines.
+    // Calculate adjacent mines.
     private void findAdjacentMines()
     {
         for(int row = 0; row < ROW_COUNT; row++)
@@ -317,36 +280,36 @@ public class MainActivity extends AppCompatActivity {
             for (int col = 0; col < COLUMN_COUNT; col++)
             {
                 int index = row * COLUMN_COUNT + col;
-                Cell cell = cells.get(index);
+                Cell c = cells.get(index);
 
-                if (cell.hasMine)
+                if (c.hasMine)
                 {
-                    cell.adjacementMines = -1;
-                    // Check if this line is needed.
-                    continue;
+                    c.adjacementMines = -1;
                 }
                 else
                 {
-                    int count = 0;
-                    for (int x = -1; x <= 1; x++)
+                    int minesNum = 0;
+                    for (int i = -1; i <= 1; i++)
                     {
-                        for (int y = -1; y <= 1; y++)
+                        for (int j = -1; j <= 1; j++)
                         {
-                            int adjacentRow = row + x;
-                            int adjacentCol = col + y;
+                            int adjacentRow = row + i;
+                            int adjacentCol = col + j;
 
                             // Check if it's within the grid.
                             if(inGrid(adjacentRow, adjacentCol))
                             {
                                 int adjacentIndex = adjacentRow * COLUMN_COUNT + adjacentCol;
-                                if(cells.get(adjacentIndex).hasMine)
+                                Cell adjacentC = cells.get(adjacentIndex);
+
+                                if(adjacentC.hasMine)
                                 {
-                                    count++;
+                                    minesNum++;
                                 }
                             }
                         }
                     }
-                    cell.adjacementMines = count;
+                    c.adjacementMines = minesNum;
                 }
             }
         }
@@ -357,37 +320,57 @@ public class MainActivity extends AppCompatActivity {
         return (row >= 0 && row < ROW_COUNT && col >= 0 && col < COLUMN_COUNT);
     }
 
-    private boolean checkWin()
-    {
-        for(Cell c : cells)
-        {
-            if(c.hasMine == false && cell.isRevealed == false)
+    private boolean checkPlayerResult() {
+        for (int i = 0; i < cells.size(); i++) {
+            Cell c = cells.get(i);
+            if (!c.hasMine && !c.isRevealed)
             {
                 return false;
             }
         }
         return true;
     }
-
-    private void endGame(boolean won)
+    private void gameResult(boolean playerResult)
     {
+        // Stop clock.
         running = false;
 
-        Intent intent = new Intent(MainActivity.this, ResultActivity.class);
+        // Reveal all cells.
+        for(int i = 0; i < cells.size(); i++)
+        {
+            Cell c = cells.get(i);
+            TextView tv = cell_tvs.get(i);
 
+            if(c.hasMine)
+            {
+                tv.setText(getString(R.string.mine));
+                tv.setBackgroundColor(Color.RED);
+            }
+            else
+            {
+                if (c.adjacementMines > 0)
+                {
+                    tv.setText(String.valueOf(c.adjacementMines));
+                    tv.setTextColor(Color.GRAY);
+                }
+                else
+                {
+                    tv.setText("");
+                }
+            }
+        }
+        Intent intent = new Intent(MainActivity.this, ResultActivity.class);
         intent.putExtra("time", clock);
 
-        if(hasWon)
+        if(playerResult)
         {
-            intent.putExtra("result", "Won");
+            intent.putExtra("result", "won");
         }
         else
         {
-            intent.putExtra("result", "Lost");
+            intent.putExtra("result", "lost");
         }
-
         startActivity(intent);
-
         finish();
     }
 }
