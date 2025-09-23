@@ -209,6 +209,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void firstClick(int row, int col)
     {
+        // Doesn't any
         if(!inGrid(row, col))
         {
             return;
@@ -330,6 +331,7 @@ public class MainActivity extends AppCompatActivity {
         }
         return true;
     }
+
     private void gameResult(boolean playerResult)
     {
         // Stop clock.
@@ -359,18 +361,30 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
-        Intent intent = new Intent(MainActivity.this, ResultActivity.class);
-        intent.putExtra("time", clock);
 
-        if(playerResult)
+        for (int i = 0; i < cell_tvs.size(); i++)
         {
-            intent.putExtra("result", "won");
+            TextView tv = cell_tvs.get(i);
+
+            tv.setOnClickListener(new View.OnClickListener()
+            {
+                @Override
+                public void onClick(View v)
+                {
+                    Intent intent = new Intent(MainActivity.this, ResultActivity.class);
+                    intent.putExtra("time", clock);
+                    if(playerResult)
+                    {
+                        intent.putExtra("result", "won");
+                    }
+                    else
+                    {
+                        intent.putExtra("result", "lost");
+                    }
+                    startActivity(intent);
+                    finish();
+                }
+            });
         }
-        else
-        {
-            intent.putExtra("result", "lost");
-        }
-        startActivity(intent);
-        finish();
     }
 }
